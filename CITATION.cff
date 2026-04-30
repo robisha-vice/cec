@@ -1,0 +1,43 @@
+cff-version: 1.2.0
+
+title: "DIWA Research Project"
+
+message: >
+  If you use this software, please cite it using the metadata below.
+  A Zenodo DOI will be provided when available.
+
+type: software
+
+authors:
+  - given-names: "Robel"
+    family-names: "Bekele"
+    affiliation: "University of Oulu"
+    email: "robel.bekele@oulu.fi"
+    orcid: "https://orcid.org/0000-0001-5572-5816"
+
+
+
+identifiers:
+  - type: url
+    value: "https://github.com/robisha-vice/robisha-vice"
+    description: GitHub repository
+
+
+
+repository-code: "https://github.com/robisha-vice/robisha-vice"
+
+url: "https://github.com/robisha-vice/robisha-vice"
+
+abstract: >
+  Sanitation as a source of Concerns of Emerging Contaminants (CECs)
+
+keywords:
+  - research
+  - open-science
+  - reproducibility
+
+license: "MIT"
+
+version: "0.1.0"
+
+date-released: "2026"
