@@ -174,10 +174,8 @@ The analysis produces the following outputs:
 ## Software
 
 All analyses were conducted in **R**, using the following key packages:
-- `lme4`, `lmerTest`
-- `broom.mixed`
-- `MuMIn`
-- `bestNormalize`
+- `readr`
+- `broom`
 - `ggplot2`
 - `pheatmap`
 - `dplyr`
