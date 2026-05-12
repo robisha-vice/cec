@@ -1,0 +1,131 @@
+---
+title: "SE3 – Statistical Modeling of Emerging Contaminants"
+author: "Robel Bekele"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+## Overview
+
+This section presents statistical modeling of emerging contaminant concentrations in wastewater treatment plant (WWTP) effluents. The analysis uses processed data generated in SE2 and applies linear models to evaluate the influence of season, treatment technology, and WWTP variability.
+
+## Load libraries
+
+```{r}
+library(readr)
+library(dplyr)
+library(broom)
+```
+
+## Load Processed Data
+
+
+```{r}
+MPs_WWTPs_Eff_DUMMY = read_csv("~/data/processed/analysis_ready_MPs_data.csv")
+
+# Clean column names
+colnames(MPs_WWTPs_Eff_DUMMY) <- make.names(colnames(MPs_WWTPs_Eff_DUMMY))
+
+# Preview data
+head(MPs_WWTPs_Eff_DUMMY)
+```
+
+# Data preparation
+
+```{r}
+# Select contaminant columns
+cont_cols <- colnames(MPs_WWTPs_Eff_DUMMY)[11:(ncol(MPs_WWTPs_Eff_DUMMY)-1)]
+
+# Log transformation
+MPs_WWTPs_Eff_DUMMY_trans <- MPs_WWTPs_Eff_DUMMY
+
+for (col in cont_cols) {
+  MPs_WWTPs_Eff_DUMMY_trans[[col]] <- log10(MPs_WWTPs_Eff_DUMMY[[col]] + 1)
+}
+
+# Convert variables to factors
+MPs_WWTPs_Eff_DUMMY_trans$Season <- factor(MPs_WWTPs_Eff_DUMMY_trans$Season)
+MPs_WWTPs_Eff_DUMMY_trans$WWTP <- factor(MPs_WWTPs_Eff_DUMMY_trans$WWTP)
+MPs_WWTPs_Eff_DUMMY_trans$Tech_type <- factor(MPs_WWTPs_Eff_DUMMY_trans$Tech_type)
+```
+
+# Model Training
+
+```{r}
+models <- list()
+
+for (col in cont_cols) {
+  
+  formula <- as.formula(
+    paste0("`", col, "` ~ Season + Tech_type + WWTP")
+  )
+  
+  models[[col]] <- tryCatch(
+    lm(formula, data = MPs_WWTPs_Eff_DUMMY_trans),
+    error = function(e) NULL
+  )
+}
+```
+
+# Extract model outputs
+
+```{r}
+summary_table <- data.frame()
+
+for (col in cont_cols) {
+  
+  if (!is.null(models[[col]])) {
+    
+    tidy_out <- tidy(models[[col]])
+    
+    season_p <- min(
+      tidy_out$p.value[grepl("^Season", tidy_out$term)],
+      na.rm = TRUE
+    )
+    
+    tech_p <- min(
+      tidy_out$p.value[grepl("^Tech_type", tidy_out$term)],
+      na.rm = TRUE
+    )
+    
+    summary_table <- rbind(
+      summary_table,
+      data.frame(
+        Contaminant = col,
+        Season_p_value = season_p,
+        Technology_p_value = tech_p,
+        Season_Significant = ifelse(season_p < 0.05, "Yes", "No"),
+        Tech_Significant = ifelse(tech_p < 0.05, "Yes", "No")
+      )
+    )
+  }
+}
+
+head(summary_table)
+```
+
+# Model Fit metrices
+
+```{r}
+model_fit <- data.frame()
+
+for (col in cont_cols) {
+  
+  if (!is.null(models[[col]])) {
+    
+    g <- glance(models[[col]])
+    
+    model_fit <- rbind(
+      model_fit,
+      data.frame(
+        Contaminant = col,
+        R_squared = g$r.squared,
+        Adj_R_squared = g$adj.r.squared,
+        AIC = g$AIC
+      )
+    )
+  }
+}
+
+head(model_fit)
+```

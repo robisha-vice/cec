@@ -1,0 +1,239 @@
+---
+title: "SE4 – Data Story Visualizations of Emerging Contaminants"
+author: "Robel Bekele"
+date: "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_depth: 2
+    number_sections: true
+---
+
+## Overview
+
+This submission presents four figures that together tell a data story about emerging contaminant patterns in wastewater treatment plant (WWTP) effluents. The visualizations examine multivariate contaminant structure, effects of treatment technology, seasonal variation, and differences among WWTPs.
+
+All figures were generated reproducibly in **R** and are displayed directly in this document.
+
+---
+
+## Visualization Methods and Processes
+
+### Data Transformation
+
+Concentration data for all contaminants were transformed using the **Yeo–Johnson power transformation** (`bestNormalize::yeojohnson`) to reduce skewness while allowing zero and negative values. Transformed concentrations were subsequently standardized prior to multivariate analysis.
+
+### Principal Component Analysis (PCA)
+
+Principal Component Analysis (PCA) was performed using `prcomp()` on scaled, transformed contaminant concentrations. PCA was used to summarize dominant gradients in the multivariate contaminant dataset. The first two principal components (PC1 and PC2) were visualized using scatter plots.
+
+### Heatmaps
+
+Heatmaps were generated using the `pheatmap` package. Mean Yeo–Johnson–transformed concentrations were calculated per WWTP. Row-wise scaling was applied to emphasize relative differences in contaminant profiles.
+
+### GUI Software and Basemaps
+
+No GUI-based visualization software or ancillary basemaps were used. All figures were created programmatically in R.
+
+---
+
+## Post‑hoc Graphical Processing
+
+All figures were generated directly in R.  
+**No post‑hoc graphical editing or modification was performed using external software.**
+
+---
+
+```{r setup, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(ggplot2)
+library(readxl)
+```
+
+```{r}
+MPs_WWTPs_Eff_DUMMY = read_csv("~/data/processed/analysis_ready_MPs_data.csv")
+```
+
+```{r data-prep}
+# =========================
+# CLEAN COLUMN NAMES
+# =========================
+colnames(MPs_WWTPs_Eff_DUMMY) <- make.names(colnames(MPs_WWTPs_Eff_DUMMY))
+
+# =========================
+# SELECT CONTAMINANTS
+# =========================
+cont_cols <- colnames(MPs_WWTPs_Eff_DUMMY)[11:(ncol(MPs_WWTPs_Eff_DUMMY)-1)]
+
+# =========================
+# LOG TRANSFORMATION (DIWA SAFE)
+# =========================
+MPs_WWTPs_Eff_DUMMY_trans <- MPs_WWTPs_Eff_DUMMY
+
+for (col in cont_cols) {
+  MPs_WWTPs_Eff_DUMMY_trans[[col]] <- log10(MPs_WWTPs_Eff_DUMMY[[col]] + 1)
+}
+
+# =========================
+# GROUPING VARIABLES (SAFE)
+# =========================
+MPs_WWTPs_Eff_DUMMY_trans$Season <- factor(MPs_WWTPs_Eff_DUMMY_trans$Season)
+MPs_WWTPs_Eff_DUMMY_trans$WWTP <- factor(MPs_WWTPs_Eff_DUMMY_trans$WWTP)
+MPs_WWTPs_Eff_DUMMY_trans$Tech.type <- factor(MPs_WWTPs_Eff_DUMMY_trans$Tech_type)
+
+# =========================
+# PCA
+# =========================
+pca_result <- prcomp(scale(MPs_WWTPs_Eff_DUMMY_trans[, cont_cols]))
+
+pca_df <- cbind(
+  MPs_WWTPs_Eff_DUMMY_trans[, c("Season", "WWTP", "Tech_type")],
+  pca_result$x[, 1:2]
+)
+```
+
+## Figure 1: PCA by Technology and Season
+
+```{r fig1}
+ggplot(pca_df, aes(
+  x = PC1, 
+  y = PC2,
+  color = Tech_type,
+  shape = Season
+)) +
+  geom_point(size = 3.5, alpha = 0.85) +
+  
+  # Add reference lines (helps interpretation)
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey70") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+  
+  # Improve labels
+  labs(
+    title = "PCA of Emerging Contaminants in WWTP Effluents",
+    subtitle = "Differences by Treatment Technology and Season",
+    x = paste0("PC1 (", round(summary(pca_result)$importance[2,1] * 100, 1), "% variance)"),
+    y = paste0("PC2 (", round(summary(pca_result)$importance[2,2] * 100, 1), "% variance)"),
+    color = "Technology Type",
+    shape = "Season"
+  ) +
+  
+  # Improve theme
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 14, face = "bold"),
+    plot.subtitle = element_text(size = 11),
+    axis.title = element_text(size = 11),
+    legend.position = "right"
+  )
+
+# Figure 1. PCA of log-transformed emerging contaminant concentrations, showing clustering patterns by treatment technology and seasonal variation.
+```
+## Figure 2: PCA by Technology and WWTP
+
+```{r fig2}
+# Remove missing rows
+pca_df <- na.omit(pca_df)
+
+ggplot(pca_df, aes(
+  x = PC1, 
+  y = PC2,
+  color = Tech_type,
+  shape = WWTP
+)) +
+  geom_point(size = 3.8, alpha = 0.85) +
+  scale_shape_manual(values = c(16, 17, 15, 3, 4, 8, 18)) +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "grey70") +
+  geom_vline(xintercept = 0, linetype = "dashed", color = "grey70") +
+  theme_bw() +
+  labs(
+    title = "PCA of Emerging Contaminants Across WWTPs",
+    subtitle = "Clustering patterns by technology and individual plants",
+    x = paste0("PC1 (", round(summary(pca_result)$importance[2,1] * 100, 1), "% variance)"),
+    y = paste0("PC2 (", round(summary(pca_result)$importance[2,2] * 100, 1), "% variance)"),
+    color = "Technology",
+    shape = "WWTP"
+  )
+
+
+# Figure 2. PCA of log-transformed contaminant concentrations showing differences among wastewater treatment plants (WWTPs), with clustering patterns influenced by treatment technology.
+```
+## Figure 3: Heatmap of All Contaminants
+
+```{r fig3}
+# =========================
+# PREPARE HEATMAP DATA
+# =========================
+heatmap_data <- MPs_WWTPs_Eff_DUMMY_trans %>%
+  group_by(WWTP) %>%
+  summarise(across(all_of(cont_cols), mean, na.rm = TRUE))
+
+# Convert to matrix and transpose (contaminants as rows)
+heatmap_matrix <- t(as.matrix(heatmap_data[,-1]))
+
+# Set row and column names
+rownames(heatmap_matrix) <- cont_cols
+colnames(heatmap_matrix) <- heatmap_data$WWTP
+
+# =========================
+# PLOT HEATMAP (BASE R)
+# =========================
+heatmap(
+  heatmap_matrix,
+  scale = "row",
+  col = colorRampPalette(c("navy", "white", "firebrick"))(50),
+  margins = c(8, 10),
+  cexRow = 0.6,
+  cexCol = 0.9
+)
+
+# Figure 3. Heatmap of mean log-transformed contaminant concentrations across WWTPs, showing relative differences in contaminant profiles.
+```
+## Figure 4: Heatmap of EU UWWTD Indicator Substances
+
+```{r fig4}
+# =========================
+# DEFINE EU INDICATORS
+# =========================
+eu_indicators <- c(
+  "Benzotriazole.1.H",
+  "Benzotriazole.5.methyl.1.H",
+  "Candesartan",
+  "Carbamazepine",
+  "Diclofenac",
+  "Hydrochlorothiazide",
+  "Metoprolol",
+  "Venlafaxine"
+)
+
+# =========================
+# PREPARE DATA
+# =========================
+heatmap_data_eu <- MPs_WWTPs_Eff_DUMMY_trans %>%
+  group_by(WWTP) %>%
+  summarise(across(all_of(eu_indicators), mean, na.rm = TRUE))
+
+# Convert to matrix
+heatmap_matrix_eu <- t(as.matrix(heatmap_data_eu[,-1]))
+
+# Assign row and column names
+rownames(heatmap_matrix_eu) <- eu_indicators
+colnames(heatmap_matrix_eu) <- heatmap_data_eu$WWTP
+
+# =========================
+# PLOT HEATMAP
+# =========================
+heatmap(
+  heatmap_matrix_eu,
+  scale = "row",
+  Rowv = TRUE,        # cluster contaminants
+  Colv = NA,          # keep WWTP order fixed
+  col = colorRampPalette(c("navy", "white", "firebrick"))(50),
+  margins = c(8, 10),
+  cexRow = 0.9,
+  cexCol = 0.9,
+  main = "EU UWWTD Indicator Compounds Across WWTPs"
+)
+
+# Figure 4. Heatmap of selected EU UWWTD indicator substances showing relative differences in contaminant concentrations across wastewater treatment plants.
+```
+
