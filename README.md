@@ -165,3 +165,17 @@ All analyses were conducted in **R**, using the following key packages:
 - Heatmaps of mean transformed contaminant concentrations per WWTP
 
 ---
+## Running on the Virtual REsearch Environment (VRE)
+This project can be executed on the VRE using the following Docker image: 
+rbekele/cec:c5d496c29ddd
+
+### Instructions
+### Instructions
+1. Open the VRE platform.
+2. Launch a new container.
+3. Paste the Docker image name above into the environment/image field.
+4. Start the container.
+5. Once running, execute:
+
+```bash
+python run_reproducibility.py
